@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axis Agenda — Personal Board</title>
+  <meta name="description" content="Agenda personal operativa con tablero, calendario, tareas, proyectos y sincronización Supabase." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="toast-root" class="toast-root"></div>
+
+  <section id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">AX</div>
+        <div>
+          <h1>Axis Agenda</h1>
+          <p>Tu board personal para operar el día, no decorarlo.</p>
+        </div>
+      </div>
+      <div class="sync-status" id="auth-sync-status"></div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-mode="login">Ingresar</button>
+        <button class="auth-tab" data-auth-mode="signup">Crear cuenta</button>
+      </div>
+      <form id="auth-form" class="auth-form">
+        <label>Email</label>
+        <input id="auth-email" type="email" autocomplete="email" placeholder="tu@email.com" required />
+        <label>Contraseña</label>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+        <button class="btn btn-primary btn-full" type="submit" id="auth-submit">Ingresar</button>
+      </form>
+      <button class="btn btn-ghost btn-full" id="btn-local-mode" type="button">Usar modo local sin Supabase</button>
+      <p class="auth-hint">Para producción en GitHub Pages: configurá <code>config.js</code>, corré el SQL y activá RLS. La key pública de Supabase puede estar en frontend; no pongas service role acá.</p>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="brand">Axis</div>
+        <div class="brand-sub">Personal Board</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Operación</div>
+        <button class="nav-item active" data-view="today"><i class="fas fa-sun nav-icon"></i><span>Hoy</span><span class="nav-badge" id="badge-today">0</span></button>
+        <button class="nav-item" data-view="board"><i class="fas fa-columns nav-icon"></i><span>Tablero</span><span class="nav-badge" id="badge-board">0</span></button>
+        <button class="nav-item" data-view="calendar"><i class="fas fa-calendar-days nav-icon"></i><span>Calendario</span></button>
+        <button class="nav-item" data-view="projects"><i class="fas fa-layer-group nav-icon"></i><span>Proyectos</span><span class="nav-badge" id="badge-projects">0</span></button>
+        <button class="nav-item" data-view="notes"><i class="fas fa-pen-nib nav-icon"></i><span>Cierre diario</span></button>
+
+        <div class="nav-section-label project-label-row">
+          <span>Proyectos</span>
+          <button id="btn-sidebar-new-project" title="Nuevo proyecto"><i class="fas fa-plus"></i></button>
+        </div>
+        <div id="sidebar-projects" class="sidebar-projects"></div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="user-row" id="btn-settings" title="Configuración">
+          <div class="avatar" id="user-avatar">?</div>
+          <div>
+            <div class="user-name" id="user-display-name">Mi Agenda</div>
+            <div class="user-sub" id="sync-mode-label">Local</div>
+          </div>
+          <i class="fas fa-gear footer-gear"></i>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn mobile-only" id="btn-toggle-sidebar"><i class="fas fa-bars"></i></button>
+        <div class="topbar-copy">
+          <h2 id="topbar-title">Hoy</h2>
+          <p id="topbar-sub">—</p>
+        </div>
+        <div class="topbar-spacer"></div>
+        <div class="search-box">
+          <i class="fas fa-magnifying-glass"></i>
+          <input id="search-input" type="search" placeholder="Buscar tarea, proyecto o nota..." />
+          <span class="shortcut">Ctrl K</span>
+        </div>
+        <button class="btn" id="btn-quick-add"><i class="fas fa-bolt"></i> Captura rápida</button>
+        <button class="btn btn-primary" id="btn-new-task"><i class="fas fa-plus"></i> Nueva tarea</button>
+      </header>
+
+      <section class="view active" id="view-today">
+        <div class="today-layout">
+          <div class="today-main">
+            <section class="command-panel">
+              <div>
+                <p class="eyebrow">Plan de ataque</p>
+                <h1 id="today-heading">Hoy</h1>
+                <p id="today-summary">Cargando agenda...</p>
+              </div>
+              <div class="focus-score">
+                <svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="17" class="ring-bg"></circle><circle cx="21" cy="21" r="17" class="ring-fg" id="focus-ring"></circle></svg>
+                <span id="focus-score-label">0%</span>
+              </div>
+            </section>
+
+            <div class="stats-row">
+              <article class="stat-card danger"><strong id="stat-overdue">0</strong><span>Vencidas</span></article>
+              <article class="stat-card"><strong id="stat-today">0</strong><span>Para hoy</span></article>
+              <article class="stat-card"><strong id="stat-active">0</strong><span>Activas</span></article>
+              <article class="stat-card success"><strong id="stat-done-today">0</strong><span>Hechas hoy</span></article>
+            </div>
+
+            <section class="panel panel-fill">
+              <div class="panel-header">
+                <div class="panel-title"><span class="dot accent"></span>Tareas de hoy</div>
+                <div class="panel-actions">
+                  <button class="chip-btn" data-today-filter="all">Todas</button>
+                  <button class="chip-btn active" data-today-filter="open">Pendientes</button>
+                  <button class="chip-btn" data-today-filter="done">Hechas</button>
+                </div>
+              </div>
+              <div class="panel-body" id="today-task-list"></div>
+            </section>
+          </div>
+
+          <aside class="today-side">
+            <section class="panel quick-capture-panel">
+              <div class="panel-header">
+                <div class="panel-title"><span class="dot blue"></span>Captura rápida</div>
+              </div>
+              <form id="quick-add-form" class="quick-form">
+                <input id="quick-title" type="text" placeholder="Ej: llamar contador 16 hs..." />
+                <div class="quick-grid">
+                  <select id="quick-when">
+                    <option value="today">Hoy</option>
+                    <option value="tomorrow">Mañana</option>
+                    <option value="none">Sin fecha</option>
+                  </select>
+                  <select id="quick-priority">
+                    <option value="media">Media</option>
+                    <option value="alta">Alta</option>
+                    <option value="baja">Baja</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-full" type="submit">Guardar</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div class="panel-title"><span class="dot green"></span>Agenda del día</div>
+                <button class="icon-btn" id="btn-new-event" title="Nuevo evento"><i class="fas fa-plus"></i></button>
+              </div>
+              <div class="panel-body" id="today-events"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div class="panel-title"><span class="dot purple"></span>Próximos 7 días</div>
+              </div>
+              <div class="panel-body" id="upcoming-list"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-board">
+        <div class="toolbar sticky-toolbar">
+          <div class="filter-group">
+            <select id="filter-project"></select>
+            <select id="filter-priority">
+              <option value="">Todas las prioridades</option>
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+            </select>
+            <select id="filter-context">
+              <option value="">Todos los contextos</option>
+              <option value="pc">PC</option>
+              <option value="telefono">Teléfono</option>
+              <option value="calle">Calle</option>
+              <option value="casa">Casa</option>
+              <option value="oficina">Oficina</option>
+            </select>
+          </div>
+          <div class="toolbar-actions">
+            <button class="btn" id="btn-clear-filters">Limpiar filtros</button>
+            <button class="btn btn-primary" id="btn-board-new-task"><i class="fas fa-plus"></i> Nueva tarea</button>
+          </div>
+        </div>
+        <div class="board" id="board"></div>
+      </section>
+
+      <section class="view" id="view-calendar">
+        <div class="toolbar sticky-toolbar">
+          <button class="icon-btn" id="cal-prev"><i class="fas fa-chevron-left"></i></button>
+          <h3 id="calendar-label" class="calendar-label"></h3>
+          <button class="icon-btn" id="cal-next"><i class="fas fa-chevron-right"></i></button>
+          <button class="btn" id="cal-today">Hoy</button>
+          <div class="topbar-spacer"></div>
+          <button class="btn btn-primary" id="btn-calendar-event"><i class="fas fa-plus"></i> Evento</button>
+        </div>
+        <div class="calendar-grid-wrap">
+          <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-projects">
+        <div class="toolbar sticky-toolbar">
+          <div>
+            <p class="eyebrow">Portfolio personal</p>
+            <h3>Proyectos activos</h3>
+          </div>
+          <div class="topbar-spacer"></div>
+          <button class="btn btn-primary" id="btn-new-project"><i class="fas fa-plus"></i> Nuevo proyecto</button>
+        </div>
+        <div class="projects-grid" id="projects-grid"></div>
+      </section>
+
+      <section class="view" id="view-notes">
+        <div class="notes-layout">
+          <section class="panel">
+            <div class="panel-header">
+              <div class="panel-title"><span class="dot accent"></span>Cierre diario</div>
+              <input type="date" id="note-date" class="date-inline" />
+            </div>
+            <form id="daily-note-form" class="daily-note-form">
+              <label>Plan del día</label>
+              <textarea id="note-plan" placeholder="Qué tiene que pasar para que el día cierre bien..."></textarea>
+              <label>Bloqueos / riesgos</label>
+              <textarea id="note-blockers" placeholder="Qué te puede trabar y cómo lo vas a neutralizar..."></textarea>
+              <label>Wins / avances</label>
+              <textarea id="note-wins" placeholder="Qué quedó resuelto..."></textarea>
+              <button class="btn btn-primary" type="submit">Guardar cierre</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <div class="panel-title"><span class="dot blue"></span>Historial reciente</div>
+            </div>
+            <div class="panel-body" id="notes-history"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav mobile-only">
+      <button class="bottom-item active" data-view="today"><i class="fas fa-sun"></i><span>Hoy</span></button>
+      <button class="bottom-item" data-view="board"><i class="fas fa-columns"></i><span>Board</span></button>
+      <button class="bottom-item" data-view="calendar"><i class="fas fa-calendar"></i><span>Cal</span></button>
+      <button class="bottom-item" data-view="projects"><i class="fas fa-layer-group"></i><span>Proy.</span></button>
+    </nav>
+  </div>
+
+  <div class="modal-overlay" id="modal-task" aria-hidden="true">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="task-modal-title">Nueva tarea</h3>
+        <button class="icon-btn modal-close" data-close="modal-task"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="task-form" class="modal-form">
+        <input type="hidden" id="task-id" />
+        <div class="form-group full">
+          <label>Título</label>
+          <input id="task-title" type="text" placeholder="Qué hay que hacer" required />
+        </div>
+        <div class="form-group full">
+          <label>Descripción</label>
+          <textarea id="task-description" placeholder="Detalles, criterios de cierre, links, contexto..."></textarea>
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group"><label>Estado</label><select id="task-status"></select></div>
+          <div class="form-group"><label>Prioridad</label><select id="task-priority"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div>
+          <div class="form-group"><label>Proyecto</label><select id="task-project"></select></div>
+        </div>
+        <div class="form-grid-4">
+          <div class="form-group"><label>Fecha límite</label><input id="task-due-date" type="date" /></div>
+          <div class="form-group"><label>Hora</label><input id="task-start-time" type="time" /></div>
+          <div class="form-group"><label>Duración</label><select id="task-duration"><option value="">Sin estimar</option><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 h</option><option value="90">1.5 h</option><option value="120">2 h</option><option value="180">3 h</option></select></div>
+          <div class="form-group"><label>Repetición</label><select id="task-repeat"><option value="none">No repetir</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select></div>
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group"><label>Contexto</label><select id="task-context"><option value="pc">PC</option><option value="telefono">Teléfono</option><option value="calle">Calle</option><option value="casa">Casa</option><option value="oficina">Oficina</option><option value="otro">Otro</option></select></div>
+          <div class="form-group"><label>Energía</label><select id="task-energy"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div>
+          <div class="form-group"><label>Color</label><select id="task-tag"><option value="blue">Azul</option><option value="green">Verde</option><option value="purple">Morado</option><option value="red">Rojo</option><option value="amber">Dorado</option><option value="teal">Teal</option><option value="pink">Rosa</option></select></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-danger hidden" type="button" id="btn-delete-task">Eliminar</button>
+          <div class="topbar-spacer"></div>
+          <button class="btn" type="button" data-close="modal-task">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Guardar tarea</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-event" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="event-modal-title">Nuevo evento</h3>
+        <button class="icon-btn modal-close" data-close="modal-event"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="event-form" class="modal-form">
+        <input type="hidden" id="event-id" />
+        <div class="form-group full"><label>Título</label><input id="event-title" type="text" required placeholder="Reunión, llamada, trámite..." /></div>
+        <div class="form-grid-3">
+          <div class="form-group"><label>Fecha</label><input id="event-date" type="date" required /></div>
+          <div class="form-group"><label>Inicio</label><input id="event-start-time" type="time" /></div>
+          <div class="form-group"><label>Fin</label><input id="event-end-time" type="time" /></div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Tipo</label><select id="event-type"><option value="reunion">Reunión</option><option value="llamada">Llamada</option><option value="personal">Personal</option><option value="deadline">Deadline</option><option value="bloque">Bloque de foco</option><option value="otro">Otro</option></select></div>
+          <div class="form-group"><label>Proyecto</label><select id="event-project"></select></div>
+        </div>
+        <div class="form-group full"><label>Ubicación</label><input id="event-location" type="text" placeholder="Opcional" /></div>
+        <div class="form-group full"><label>Notas</label><textarea id="event-notes" placeholder="Datos útiles para llegar preparado"></textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-danger hidden" type="button" id="btn-delete-event">Eliminar</button>
+          <div class="topbar-spacer"></div>
+          <button class="btn" type="button" data-close="modal-event">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Guardar evento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-project" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="project-modal-title">Nuevo proyecto</h3>
+        <button class="icon-btn modal-close" data-close="modal-project"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="project-form" class="modal-form">
+        <input type="hidden" id="project-id" />
+        <div class="form-group full"><label>Nombre</label><input id="project-name" type="text" required placeholder="Ej: Clean It, Personal, Finanzas..." /></div>
+        <div class="form-group full"><label>Descripción</label><textarea id="project-description" placeholder="Objetivo y alcance"></textarea></div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Color</label><select id="project-color"><option value="accent">Dorado</option><option value="blue">Azul</option><option value="green">Verde</option><option value="purple">Morado</option><option value="red">Rojo</option><option value="teal">Teal</option><option value="pink">Rosa</option></select></div>
+          <div class="form-group"><label>Estado</label><select id="project-archived"><option value="false">Activo</option><option value="true">Archivado</option></select></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-danger hidden" type="button" id="btn-delete-project">Eliminar</button>
+          <div class="topbar-spacer"></div>
+          <button class="btn" type="button" data-close="modal-project">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Guardar proyecto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-settings" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Configuración</h3>
+        <button class="icon-btn modal-close" data-close="modal-settings"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="settings-list">
+        <div class="setting-card">
+          <strong>Modo de datos</strong>
+          <p id="settings-sync-copy">—</p>
+        </div>
+        <div class="setting-card">
+          <strong>Backup operativo</strong>
+          <p>Exportá o importá JSON. Útil antes de migrar a Supabase.</p>
+          <div class="settings-actions">
+            <button class="btn" id="btn-export-json"><i class="fas fa-download"></i> Exportar</button>
+            <label class="btn file-label"><i class="fas fa-upload"></i> Importar<input type="file" id="import-json" accept="application/json" /></label>
+          </div>
+        </div>
+        <div class="setting-card" id="auth-setting-card">
+          <strong>Sesión</strong>
+          <p>Usá logout si trabajás en una computadora compartida.</p>
+          <button class="btn btn-danger" id="btn-logout"><i class="fas fa-right-from-bracket"></i> Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
