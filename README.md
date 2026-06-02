@@ -1,4 +1,4 @@
-# Axis Agenda — Personal Board Operativo V5 Final
+# Axis Agenda — Personal Board Operativo V5.5 Final
 
 Agenda personal diaria con tablero visual libre, calendario, tareas, proyectos, cierre diario y sincronización opcional con Supabase. Está lista para GitHub Pages.
 
@@ -29,13 +29,13 @@ Limitación: si cambiás de navegador o dispositivo, no se sincroniza. Sirve par
 4. En Supabase, entrá en `Project Settings > API`.
 5. Copiá:
    - Project URL
-   - anon public key
+   - publishable key o legacy anon public key
 6. Editá `config.js` así:
 
 ```js
 window.AGENDA_CONFIG = {
   SUPABASE_URL: "https://TU-PROYECTO.supabase.co",
-  SUPABASE_ANON_KEY: "TU_SUPABASE_ANON_KEY"
+  SUPABASE_ANON_KEY: "TU_PUBLISHABLE_KEY_O_ANON_PUBLIC_KEY"
 };
 ```
 
@@ -151,7 +151,7 @@ La app valida `config.js` antes de mostrar login. Si detecta placeholders, URL i
 
 Checklist si no loguea:
 
-1. `config.js` tiene `Project URL` y `anon public key` reales.
+1. `config.js` tiene `Project URL` y `publishable key o legacy anon public key` reales.
 2. No pegaste `service_role key`.
 3. Ejecutaste `supabase_schema.sql` completo.
 4. En Supabase > Authentication > Providers, Email está activo.
@@ -167,3 +167,71 @@ La anon key de Supabase puede estar en frontend. La protección real está en Ro
 Si venís de la V4, no deberías necesitar cambiar la base. Igual podés ejecutar `supabase_schema.sql` completo: está preparado con `if not exists` para no romper datos.
 
 Si venís desde una versión anterior a la V2, ejecutá `supabase_schema.sql` completo.
+
+
+## Nota V5.1 — Publishable key de Supabase
+
+Supabase puede mostrar claves públicas nuevas con formato `sb_publishable_...`. Esta V5.1 las acepta correctamente. También sigue aceptando la legacy anon public key con formato JWT que empieza con `eyJ...`.
+
+Usá cualquiera de estas dos en `SUPABASE_ANON_KEY`. El nombre de la variable queda así por compatibilidad, pero puede contener una publishable key.
+
+No uses `sb_secret_...` ni `service_role` en frontend.
+
+
+## V5.2 — Calendario editable
+
+- Click sobre una tarea del calendario: abre la tarea para editar, mover fecha, completar o eliminar.
+- Click sobre un evento del calendario: abre el evento para editar, mover fecha o eliminar.
+- Arrastrá tareas/eventos entre días para cambiar la fecha directamente desde el calendario.
+- En el modal de tarea agregué **Quitar fecha** para sacarla del calendario sin borrar la tarea.
+
+
+
+## V5.3 — Proyectos sincronizados con calendario
+
+Corrección funcional: los eventos creados desde Calendario con un proyecto asignado ahora impactan en la pestaña Proyectos.
+
+- Los proyectos cuentan tareas abiertas, tareas hechas, eventos próximos y eventos pasados.
+- El progreso global del proyecto combina tareas completadas + eventos ya ocurridos sobre el total de tareas + eventos.
+- Cada tarjeta de proyecto muestra el próximo evento vinculado, si existe.
+- El badge lateral del proyecto suma tareas abiertas + eventos próximos.
+- Al eliminar un proyecto, las tareas y eventos vinculados quedan sin proyecto en lugar de quedar con una referencia colgada.
+
+No requiere cambios de base de datos si ya tenés la V5.2/V5.1 funcionando.
+
+## V5.4 — Horarios aproximados en calendario
+
+Esta versión permite asignar hora aproximada a lo agendado:
+
+- Las tareas con fecha pueden tener **hora aprox.** y duración estimada.
+- Los eventos pueden tener **inicio aprox.** y **fin aprox.**.
+- El calendario muestra los horarios con prefijo `~`, por ejemplo `~15:00`.
+- La vista Hoy ordena primero por fecha, después por hora aproximada y luego por prioridad.
+- Los modales incluyen atajos rápidos: `~09:00`, `~12:00`, `~15:00`, `~18:00` y opción para dejar sin hora.
+
+No requiere cambios nuevos en Supabase. La base ya tenía `start_time`, `end_time` y `duration_min`.
+
+## V5.5 — Tipos de calendario editables
+
+Esta versión convierte el campo **Tipo** de los eventos en una configuración editable por usuario.
+
+Ahora podés:
+
+- Crear tipos propios: Trabajo, Personal, Clientes, Trámites, Salud, Finanzas, etc.
+- Editar nombre, color, icono, orden y estado visible/oculto.
+- Eliminar tipos que ya no uses.
+- Ver el color del tipo reflejado directamente en el calendario y en la agenda del día.
+- Gestionar tipos desde **Configuración > Tipos de calendario**.
+- Abrir la gestión desde el modal de evento con el botón al lado del selector de Tipo.
+
+### Importante para Supabase
+
+V5.5 sí requiere volver a ejecutar `supabase_schema.sql`, porque agrega la tabla:
+
+```sql
+event_types
+```
+
+y elimina el `check` rígido anterior sobre `events.type`, para permitir tipos personalizados.
+
+No borra tus eventos existentes. Si un evento tiene un tipo viejo, la app lo sigue mostrando. Si eliminás un tipo usado, sus eventos se reasignan automáticamente a otro tipo activo.

@@ -23,6 +23,21 @@ create table if not exists public.projects (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.event_types (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  key text not null,
+  label text not null,
+  color text not null default 'blue' check (color in ('accent','blue','green','purple','red','teal','pink','amber')),
+  icon text not null default 'fa-circle',
+  archived boolean not null default false,
+  sort_order numeric not null default 100,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint event_types_key_format check (key ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  constraint event_types_user_key_unique unique (user_id, key)
+);
+
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -53,11 +68,14 @@ create table if not exists public.events (
   event_date date not null,
   start_time time,
   end_time time,
-  type text not null default 'otro' check (type in ('reunion','llamada','personal','deadline','bloque','otro')),
+  type text not null default 'otro',
   location text default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- V5.5: permitir tipos de calendario personalizados.
+alter table public.events drop constraint if exists events_type_check;
 
 create table if not exists public.daily_notes (
   id uuid primary key default gen_random_uuid(),
@@ -72,6 +90,7 @@ create table if not exists public.daily_notes (
 );
 
 create index if not exists idx_projects_user on public.projects(user_id);
+create index if not exists idx_event_types_user on public.event_types(user_id, archived, sort_order);
 create index if not exists idx_tasks_user_due on public.tasks(user_id, due_date);
 create index if not exists idx_tasks_user_status on public.tasks(user_id, status);
 create index if not exists idx_events_user_date on public.events(user_id, event_date);
@@ -79,6 +98,9 @@ create index if not exists idx_daily_notes_user_date on public.daily_notes(user_
 
 drop trigger if exists set_projects_updated_at on public.projects;
 create trigger set_projects_updated_at before update on public.projects for each row execute function public.set_updated_at();
+
+drop trigger if exists set_event_types_updated_at on public.event_types;
+create trigger set_event_types_updated_at before update on public.event_types for each row execute function public.set_updated_at();
 
 drop trigger if exists set_tasks_updated_at on public.tasks;
 create trigger set_tasks_updated_at before update on public.tasks for each row execute function public.set_updated_at();
@@ -90,6 +112,7 @@ drop trigger if exists set_daily_notes_updated_at on public.daily_notes;
 create trigger set_daily_notes_updated_at before update on public.daily_notes for each row execute function public.set_updated_at();
 
 alter table public.projects enable row level security;
+alter table public.event_types enable row level security;
 alter table public.tasks enable row level security;
 alter table public.events enable row level security;
 alter table public.daily_notes enable row level security;
@@ -103,6 +126,15 @@ drop policy if exists "projects_update_own" on public.projects;
 create policy "projects_update_own" on public.projects for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "projects_delete_own" on public.projects;
 create policy "projects_delete_own" on public.projects for delete using (auth.uid() = user_id);
+
+drop policy if exists "event_types_select_own" on public.event_types;
+create policy "event_types_select_own" on public.event_types for select using (auth.uid() = user_id);
+drop policy if exists "event_types_insert_own" on public.event_types;
+create policy "event_types_insert_own" on public.event_types for insert with check (auth.uid() = user_id);
+drop policy if exists "event_types_update_own" on public.event_types;
+create policy "event_types_update_own" on public.event_types for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "event_types_delete_own" on public.event_types;
+create policy "event_types_delete_own" on public.event_types for delete using (auth.uid() = user_id);
 
 drop policy if exists "tasks_select_own" on public.tasks;
 create policy "tasks_select_own" on public.tasks for select using (auth.uid() = user_id);
