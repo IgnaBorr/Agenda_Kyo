@@ -58,3 +58,16 @@ window.AGENDA_CONFIG = {
 ## Nota de seguridad
 
 La anon key de Supabase puede estar en frontend. La protección real está en Row Level Security. No uses nunca la service role key en GitHub Pages.
+
+## V2 — Tablero visual libre
+
+La pestaña **Tablero** ya no funciona como Kanban. Ahora es un canvas general de trabajo:
+
+- Arrastrás plantillas desde la barra superior: Idea, Tarea, Decisión, Nota o Bloqueo.
+- Cada tarjeta se puede mover libremente por el espacio.
+- Cada tarjeta tiene título, categoría, color y texto.
+- Podés conectar tarjetas con el botón **Conectar**.
+- Podés quitar conexiones desde el icono de enlace roto en cada tarjeta.
+- El botón **Ordenar vista** acomoda automáticamente las tarjetas si el tablero queda desprolijo.
+
+Para Supabase, ejecutá de nuevo `supabase_schema.sql`. Agrega las tablas `board_cards` y `board_links` con RLS por usuario.
