@@ -1,13 +1,13 @@
-# Axis Agenda — Personal Board Operativo V5.5 Final
+# UMI — Agenda Personal V6
 
-Agenda personal diaria con tablero visual libre, calendario, tareas, proyectos, cierre diario y sincronización opcional con Supabase. Está lista para GitHub Pages.
+Agenda personal diaria con tablero visual libre, calendario, tareas, proyectos, cierre diario y sincronización opcional con Supabase. Esta V6 renombra la app a UMI e incorpora tareas multidía en calendario.
 
-La filosofía de esta V5 es **comodidad + orden**: capturar rápido, decidir visualmente y ejecutar desde la agenda diaria.
+La filosofía de UMI es **calma + claridad**: capturar rápido, decidir con criterio y ejecutar sin ruido.
 
 ## Archivos
 
 - `index.html`: estructura principal.
-- `styles.css`: interfaz responsive, mobile-first y mejoras visuales V5.
+- `styles.css`: interfaz responsive, mobile-first y nueva estética UMI.
 - `app.js`: lógica completa, CRUD, canvas, conexiones, atajos, búsqueda, backup, sync y tablero visual.
 - `config.js`: configuración activa. Por defecto viene en modo local.
 - `config.example.js`: plantilla para conectar Supabase.
@@ -56,7 +56,7 @@ window.AGENDA_CONFIG = {
 - Responsive para celular.
 - Modo local fallback si Supabase no está configurado.
 
-## V5 — Mejoras finales
+## V6 — Novedades principales
 
 ### Tablero Canvas más cómodo
 
@@ -235,3 +235,13 @@ event_types
 y elimina el `check` rígido anterior sobre `events.type`, para permitir tipos personalizados.
 
 No borra tus eventos existentes. Si un evento tiene un tipo viejo, la app lo sigue mostrando. Si eliminás un tipo usado, sus eventos se reasignan automáticamente a otro tipo activo.
+
+
+### Cambios de V6
+
+- Rebranding completo de Axis a **UMI**.
+- Estética más minimalista, clara y con una impronta oriental suave.
+- Las tareas ahora pueden durar varios días usando `Desde` y `Hasta`.
+- En el calendario, una tarea multidía se ve extendida en cada jornada y conserva su rango al arrastrarla.
+- Los días del calendario ya no cortan visualmente después de 3 tareas: muestran todas las que entren en la celda.
+- Si usás Supabase, corré nuevamente `supabase_schema.sql` para agregar la columna `end_date` en `tasks`.
